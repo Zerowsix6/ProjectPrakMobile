@@ -41,7 +41,7 @@ import { BookingModal } from '../components/BookingModal';
 import { formatRupiah, selesaikanTransaksi } from '../utils/rentalFunctions';
 
 interface RentalHomeScreenProps {
-  onGoToMateri: () => void;
+  onGoToMateri?: () => void;
 }
 
 export const RentalHomeScreen: React.FC<RentalHomeScreenProps> = ({ onGoToMateri }) => {
@@ -141,9 +141,9 @@ export const RentalHomeScreen: React.FC<RentalHomeScreenProps> = ({ onGoToMateri
         )}
       </View>
 
-      {/* [5.4.A] MAP() LOOP: Filter Chips Horizontal */}
+      {/* Filter Chips Horizontal */}
       <View style={styles.filterRow}>
-        <Text style={styles.filterTitle}>Filter Konsol [5.4.A map]:</Text>
+        <Text style={styles.filterTitle}>Pilih Tipe Konsol:</Text>
         <View style={styles.filterPills}>
           {/* [5.4.A] MAP() LOOP */}
           {categories.map((cat) => {
@@ -217,7 +217,7 @@ export const RentalHomeScreen: React.FC<RentalHomeScreenProps> = ({ onGoToMateri
               <Text style={externalStyles.sectionTitle}>
                 Daftar Unit Tersedia ({filteredUnits.length})
               </Text>
-              <Text style={styles.flatListBadge}>[5.4.B FlatList Component]</Text>
+              <Text style={styles.flatListBadge}>⚡ Terupdate</Text>
             </View>
           </View>
         }

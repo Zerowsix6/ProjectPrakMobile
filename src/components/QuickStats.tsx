@@ -21,7 +21,7 @@ export const QuickStats: React.FC<QuickStatsProps> = ({ units }) => {
     <View style={styles.statsCard}>
       <View style={styles.headerRow}>
         <Text style={styles.statsTitle}>📊 STATUS RENTAL REALTIME</Text>
-        <Text style={styles.statSub}>[5.4.C Primitive Loop Summary]</Text>
+        <Text style={styles.statSub}>🟢 Live Monitor</Text>
       </View>
 
       <View style={styles.grid}>

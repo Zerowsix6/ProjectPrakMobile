@@ -1,91 +1,102 @@
 // ============================================================================
-// MATERI 1.1: STRUKTUR IMPORT
-// MATERI 1.2: RETURN KOMPONEN REACT
-// MATERI 2: KOMPONEN
-// MATERI 3.1: INTERNAL STYLING
-// MATERI 3.2: EXTERNAL STYLING
+// KOMPONEN: HEADER RENTAL PS
+// Header navigasi bersih tanpa label materi (Clean Production UI)
 // ============================================================================
 
-// [1.1] Struktur Import: Library utama
 import React from 'react';
-// [1.1] Struktur Import: Komponen bawaan React Native
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-// [1.1] Struktur Import: External Stylesheet (3.2)
+import { router } from 'expo-router';
 import { externalStyles } from '../styles/externalStyles';
-// [1.1] Struktur Import: Types (5.5.B)
 import { SHOP_NAME } from '../data/rentalData';
+import { useRental } from '../context/RentalContext';
 
 interface HeaderRentalProps {
-  activeTab: 'rental' | 'materi';
-  // [5.3.C] Callback Function Prop
-  onTabChange: (tab: 'rental' | 'materi') => void;
-  availableCount: number;
-  totalCount: number;
+  currentRoute?: 'home' | 'active-sessions';
 }
 
-/**
- * [2. KOMPONEN] HeaderRental Component
- */
-export const HeaderRental: React.FC<HeaderRentalProps> = ({
-  activeTab,
-  onTabChange,
-  availableCount,
-  totalCount,
-}) => {
-  // [1.2] RETURN KOMPONEN REACT:
-  // Mengembalikan hierarki JSX tunggal
+export const HeaderRental: React.FC<HeaderRentalProps> = ({ currentRoute = 'home' }) => {
+  const { availableCount, totalCount, activeSessions } = useRental();
+
+  // Hitung sesi aktif yang masih berjalan (remainingSeconds > 0)
+  const runningSessionsCount = activeSessions.filter((s) => s.status !== 'COMPLETED').length;
+
   return (
     <View style={styles.headerWrapper}>
-      {/* Brand Header */}
+      {/* Brand & Store Status */}
       <View style={externalStyles.rowBetween}>
         <View style={{ flex: 1 }}>
           <View style={styles.badgeLabel}>
-            <Text style={styles.badgeLabelText}>🎮 SISTEM RENTAL PS</Text>
+            <Text style={styles.badgeLabelText}>🎮 RENTAL PLAYSTATION</Text>
           </View>
           <Text style={styles.shopTitle} numberOfLines={1}>
             {SHOP_NAME}
           </Text>
           <Text style={styles.subtitle}>
-            Unit Siap Main: {availableCount} dari {totalCount} Unit
+            Siap Main: <Text style={{ color: '#10B981', fontWeight: '700' }}>{availableCount}</Text> dari {totalCount} Unit
           </Text>
         </View>
+
+        {/* Live Active Sessions Indicator Button (Menerapkan router.push) */}
+        <TouchableOpacity
+          onPress={() => {
+            if (currentRoute !== 'active-sessions') {
+              router.push('/active-sessions');
+            }
+          }}
+          style={[
+            styles.activeSessionsBtn,
+            runningSessionsCount > 0 ? styles.activeSessionsBtnRunning : styles.activeSessionsBtnIdle,
+          ]}
+        >
+          <Text style={styles.activeSessionsIcon}>⏱️</Text>
+          <View>
+            <Text style={styles.activeSessionsCount}>{runningSessionsCount} Sesi</Text>
+            <Text style={styles.activeSessionsSub}>Bermain</Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
-      {/* [5.2] CONDITIONS & [5.3.C] CALLBACK EVENT: Tab Switcher */}
-      <View style={styles.tabContainer}>
+      {/* Navigasi Cepat Antar Halaman (Katalog Unit & Sesi Aktif) */}
+      <View style={styles.navRow}>
         <TouchableOpacity
-          // [5.3.C] Callback Function dipanggil saat ditekan
-          onPress={() => onTabChange('rental')}
+          onPress={() => {
+            if (currentRoute !== 'home') {
+              router.push('/');
+            }
+          }}
           style={[
-            styles.tabButton,
-            // [5.2] CONDITIONS (Ternary untuk styling aktif)
-            activeTab === 'rental' ? styles.tabActive : styles.tabInactive,
+            styles.navTab,
+            currentRoute === 'home' ? styles.navTabActive : styles.navTabInactive,
           ]}
         >
           <Text
             style={[
-              styles.tabText,
-              activeTab === 'rental' ? styles.tabTextActive : styles.tabTextInactive,
+              styles.navTabText,
+              currentRoute === 'home' ? styles.navTabTextActive : styles.navTabTextInactive,
             ]}
           >
-            🕹️ Katalog & Sewa
+            🎮 Katalog Unit
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => onTabChange('materi')}
+          onPress={() => {
+            if (currentRoute !== 'active-sessions') {
+              router.push('/active-sessions');
+            }
+          }}
           style={[
-            styles.tabButton,
-            activeTab === 'materi' ? styles.tabActive : styles.tabInactive,
+            styles.navTab,
+            currentRoute === 'active-sessions' ? styles.navTabActive : styles.navTabInactive,
           ]}
         >
           <Text
             style={[
-              styles.tabText,
-              activeTab === 'materi' ? styles.tabTextActive : styles.tabTextInactive,
+              styles.navTabText,
+              currentRoute === 'active-sessions' ? styles.navTabTextActive : styles.navTabTextInactive,
             ]}
           >
-            📚 Lab Materi (Silabus)
+            ⏱️ Sesi Aktif & Timer ({runningSessionsCount})
           </Text>
         </TouchableOpacity>
       </View>
@@ -93,21 +104,17 @@ export const HeaderRental: React.FC<HeaderRentalProps> = ({
   );
 };
 
-// ============================================================================
-// [3.1] INTERNAL STYLING:
-// StyleSheet.create khusus untuk HeaderRental
-// ============================================================================
 const styles = StyleSheet.create({
   headerWrapper: {
     backgroundColor: '#0F172A',
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 14,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#1E293B',
   },
   badgeLabel: {
-    backgroundColor: '#1E3A8A', // Blue 900
+    backgroundColor: '#1E3A8A',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -118,51 +125,77 @@ const styles = StyleSheet.create({
     color: '#93C5FD',
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
   },
   shopTitle: {
+    color: '#F8FAFC',
     fontSize: 18,
     fontWeight: '800',
-    color: '#F8FAFC',
     letterSpacing: 0.3,
   },
   subtitle: {
-    fontSize: 12,
     color: '#94A3B8',
+    fontSize: 12,
     marginTop: 2,
   },
-  tabContainer: {
+  activeSessionsBtn: {
     flexDirection: 'row',
-    backgroundColor: '#1E293B',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 12,
-    padding: 4,
-    marginTop: 14,
+    borderWidth: 1,
   },
-  tabButton: {
+  activeSessionsBtnRunning: {
+    backgroundColor: '#1E3A8A44',
+    borderColor: '#3B82F6',
+  },
+  activeSessionsBtnIdle: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  activeSessionsIcon: {
+    fontSize: 18,
+  },
+  activeSessionsCount: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  activeSessionsSub: {
+    color: '#94A3B8',
+    fontSize: 10,
+  },
+  navRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  navTab: {
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 10,
+    borderWidth: 1,
   },
-  tabActive: {
+  navTabActive: {
     backgroundColor: '#2563EB',
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: '#3B82F6',
   },
-  tabInactive: {
-    backgroundColor: 'transparent',
+  navTabInactive: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
   },
-  tabText: {
+  navTabText: {
     fontSize: 12,
+  },
+  navTabTextActive: {
+    color: '#FFFFFF',
     fontWeight: '700',
   },
-  tabTextActive: {
-    color: '#FFFFFF',
-  },
-  tabTextInactive: {
+  navTabTextInactive: {
     color: '#94A3B8',
+    fontWeight: '500',
   },
 });

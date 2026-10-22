@@ -40,6 +40,23 @@ export const batasiDurasiJam = (jamInput: number, minJam: number = 1, maxJam: nu
   return Math.min(Math.max(jamInput, minJam), maxJam);
 };
 
+/**
+ * Memformat sisa waktu dalam detik menjadi format "HH:MM:SS" atau "MM:SS"
+ */
+export const formatSecondsToTime = (totalSeconds: number): string => {
+  if (totalSeconds <= 0) return '00:00';
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const pad = (n: number) => n.toString().padStart(2, '0');
+
+  if (hours > 0) {
+    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+  }
+  return `${pad(minutes)}:${pad(seconds)}`;
+};
+
 // ============================================================================
 // 5.3.B: FUNCTION CUSTOM (USER-DEFINED BUSINESS FUNCTIONS)
 // ============================================================================

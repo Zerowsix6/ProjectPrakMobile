@@ -1,52 +1,65 @@
 // ============================================================================
-// MATERI 5.5.B: TYPE & INTERFACE (TypeScript)
-// MATERI 5.1: VARIABLE & TYPE SYSTEM
+// TYPE & INTERFACE DEFINITION (TypeScript)
+// Model Data Rental PlayStation & Manajemen State
 // ============================================================================
 
 /**
- * [5.5.B] TYPE ALIAS:
- * Digunakan untuk mendefinisikan union type atau tipe data khusus.
+ * Type Alias untuk tipe konsol PlayStation yang didukung
  */
 export type PSConsoleType = 'PS3' | 'PS4' | 'PS5' | 'PS_VR2';
 
+/**
+ * Type Alias untuk status ketersediaan unit rental
+ */
 export type UnitStatus = 'Tersedia' | 'Sedang Dimainkan' | 'Maintenance';
 
+/**
+ * Type Alias untuk metode pembayaran sewa
+ */
 export type PaymentMethod = 'Cash' | 'QRIS' | 'Transfer Bank';
 
 /**
- * [5.5.B] INTERFACE:
- * Digunakan untuk membuat struktur kontrak objek (OOP / Data Contract).
- * Bisa di-extends dan sangat umum dipakai untuk model data & props komponen React.
+ * Interface untuk data item aksesori tambahan (stik ekstra, headset, dll.)
  */
 export interface AccessoryItem {
-  id: string;             // [5.1] Variable tipe string
-  name: string;           // [5.1] Variable tipe string
-  extraPrice: number;     // [5.1] Variable tipe number
-  selected?: boolean;     // [5.1] Variable tipe boolean (opsional)
+  id: string;
+  name: string;
+  extraPrice: number;
+  selected?: boolean;
 }
 
+/**
+ * Interface utama model unit PlayStation
+ */
 export interface RentalUnit {
-  id: string;                      // [5.1] string
-  name: string;                    // [5.1] string
-  type: PSConsoleType;             // [5.5.B] Menggunakan custom type union
-  hourlyRate: number;              // [5.1] number
-  status: UnitStatus;              // [5.5.B] Custom status union
-  isVip: boolean;                  // [5.1] boolean
-  tvSize: string;                  // [5.1] string
-  controllerCount: number;         // [5.1] number
-  popularGames: string[];          // Array of string
-  activeDurationLeftMinutes?: number; // Sisa menit sewa (opsional)
-  currentRenterName?: string;      // Nama penyewa aktif (opsional)
+  id: string;
+  name: string;
+  type: PSConsoleType;
+  hourlyRate: number;
+  status: UnitStatus;
+  isVip: boolean;
+  tvSize: string;
+  controllerCount: number;
+  popularGames: string[];
+  activeDurationLeftMinutes?: number;
+  currentRenterName?: string;
 }
 
+/**
+ * Interface form state pemesanan rental
+ */
 export interface BookingFormState {
   customerName: string;
+  customerPhone: string;
   durationHours: number;
   selectedAccessories: string[];
   paymentMethod: PaymentMethod;
   notes: string;
 }
 
+/**
+ * Interface hasil transaksi rental yang berhasil
+ */
 export interface BookingResult {
   bookingId: string;
   unitId: string;
@@ -63,16 +76,16 @@ export interface BookingResult {
 }
 
 /**
- * Interface untuk struktur materi pembelajaran di aplikasi
+ * Interface sesi bermain aktif untuk pelacakan live countdown timer
  */
-export interface SyllabusModule {
-  id: string;
-  title: string;
-  subtitle: string;
-  points: {
-    number: string;
-    topic: string;
-    explanation: string;
-    codeSnippet: string;
-  }[];
+export interface ActiveSession {
+  sessionId: string;
+  unitId: string;
+  unitName: string;
+  customerName: string;
+  startTime: string;
+  initialDurationMinutes: number;
+  remainingSeconds: number; // total sisa waktu dalam detik untuk live countdown
+  totalPaid: number;
+  status: 'ACTIVE' | 'WARNING' | 'COMPLETED';
 }
