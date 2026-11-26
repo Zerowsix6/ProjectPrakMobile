@@ -1,27 +1,76 @@
 // ============================================================================
 // KOMPONEN: HEADER RENTAL PS
-// Header navigasi bersih tanpa label materi (Clean Production UI)
+// [PERUBAHAN - KRITERIA 5 & 6]: Menampilkan info user dari AuthContext & tombol Sign Out + loading state
+// [PERUBAHAN - KRITERIA 1]: Menambahkan tab navigasi ke layar katalog Game External API
 // ============================================================================
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { router } from 'expo-router';
 import { externalStyles } from '../styles/externalStyles';
 import { SHOP_NAME } from '../data/rentalData';
 import { useRental } from '../context/RentalContext';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderRentalProps {
-  currentRoute?: 'home' | 'active-sessions';
+  currentRoute?: 'home' | 'active-sessions' | 'external-games';
 }
 
 export const HeaderRental: React.FC<HeaderRentalProps> = ({ currentRoute = 'home' }) => {
   const { availableCount, totalCount, activeSessions } = useRental();
+  // [PERUBAHAN - KRITERIA 5 & 6]: Mengambil data user, signOut, dan loading state dari AuthContext
+  const { user, signOut, isAuthActionLoading } = useAuth();
 
   // Hitung sesi aktif yang masih berjalan (remainingSeconds > 0)
   const runningSessionsCount = activeSessions.filter((s) => s.status !== 'COMPLETED').length;
 
+  const displayName =
+    (user?.user_metadata?.full_name as string | undefined) || user?.email || 'Operator';
+
+  // [PERUBAHAN - KRITERIA 5]: Handler Sign Out Supabase dengan konfirmasi & loading state
+  const handleSignOut = () => {
+    Alert.alert('Keluar Akun', 'Apakah Anda yakin ingin keluar dari sesi saat ini?', [
+      { text: 'Batal', style: 'cancel' },
+      {
+        text: 'Keluar',
+        style: 'destructive',
+        onPress: async () => {
+          const result = await signOut();
+          if (result.error) {
+            Alert.alert('Gagal Keluar', result.error);
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <View style={styles.headerWrapper}>
+      {/* [PERUBAHAN - KRITERIA 5 & 6]: Bar Pengguna Login & Tombol Sign Out */}
+      <View style={styles.authBar}>
+        <Text style={styles.authUserText} numberOfLines={1}>
+          👤 {displayName}
+        </Text>
+        <TouchableOpacity
+          onPress={handleSignOut}
+          disabled={isAuthActionLoading}
+          style={styles.signOutBtn}
+        >
+          {isAuthActionLoading ? (
+            <ActivityIndicator size="small" color="#FCA5A5" />
+          ) : (
+            <Text style={styles.signOutText}>🚪 Sign Out</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
       {/* Brand & Store Status */}
       <View style={externalStyles.rowBetween}>
         <View style={{ flex: 1 }}>
@@ -32,11 +81,13 @@ export const HeaderRental: React.FC<HeaderRentalProps> = ({ currentRoute = 'home
             {SHOP_NAME}
           </Text>
           <Text style={styles.subtitle}>
-            Siap Main: <Text style={{ color: '#10B981', fontWeight: '700' }}>{availableCount}</Text> dari {totalCount} Unit
+            Siap Main:{' '}
+            <Text style={{ color: '#10B981', fontWeight: '700' }}>{availableCount}</Text> dari{' '}
+            {totalCount} Unit
           </Text>
         </View>
 
-        {/* Live Active Sessions Indicator Button (Menerapkan router.push) */}
+        {/* Live Active Sessions Indicator Button */}
         <TouchableOpacity
           onPress={() => {
             if (currentRoute !== 'active-sessions') {
@@ -56,7 +107,7 @@ export const HeaderRental: React.FC<HeaderRentalProps> = ({ currentRoute = 'home
         </TouchableOpacity>
       </View>
 
-      {/* Navigasi Cepat Antar Halaman (Katalog Unit & Sesi Aktif) */}
+      {/* Navigasi Cepat Antar Halaman */}
       <View style={styles.navRow}>
         <TouchableOpacity
           onPress={() => {
@@ -75,7 +126,7 @@ export const HeaderRental: React.FC<HeaderRentalProps> = ({ currentRoute = 'home
               currentRoute === 'home' ? styles.navTabTextActive : styles.navTabTextInactive,
             ]}
           >
-            🎮 Katalog Unit
+            🎮 Katalog
           </Text>
         </TouchableOpacity>
 
@@ -96,7 +147,29 @@ export const HeaderRental: React.FC<HeaderRentalProps> = ({ currentRoute = 'home
               currentRoute === 'active-sessions' ? styles.navTabTextActive : styles.navTabTextInactive,
             ]}
           >
-            ⏱️ Sesi Aktif & Timer ({runningSessionsCount})
+            ⏱️ Sesi ({runningSessionsCount})
+          </Text>
+        </TouchableOpacity>
+
+        {/* [PERUBAHAN - KRITERIA 1]: Tab Navigasi menuju halaman External API Game Catalog */}
+        <TouchableOpacity
+          onPress={() => {
+            if (currentRoute !== 'external-games') {
+              router.push('/external-games');
+            }
+          }}
+          style={[
+            styles.navTab,
+            currentRoute === 'external-games' ? styles.navTabActive : styles.navTabInactive,
+          ]}
+        >
+          <Text
+            style={[
+              styles.navTabText,
+              currentRoute === 'external-games' ? styles.navTabTextActive : styles.navTabTextInactive,
+            ]}
+          >
+            🌐 Game API
           </Text>
         </TouchableOpacity>
       </View>
@@ -108,10 +181,44 @@ const styles = StyleSheet.create({
   headerWrapper: {
     backgroundColor: '#0F172A',
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 10,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#1E293B',
+  },
+  authBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1E293B',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  authUserText: {
+    color: '#CBD5E1',
+    fontSize: 11,
+    fontWeight: '600',
+    flex: 1,
+    marginRight: 8,
+  },
+  signOutBtn: {
+    backgroundColor: '#7F1D1D55',
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    minWidth: 74,
+    alignItems: 'center',
+  },
+  signOutText: {
+    color: '#FCA5A5',
+    fontSize: 11,
+    fontWeight: '700',
   },
   badgeLabel: {
     backgroundColor: '#1E3A8A',
@@ -169,7 +276,7 @@ const styles = StyleSheet.create({
   },
   navRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     marginTop: 12,
   },
   navTab: {
@@ -188,7 +295,7 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   navTabText: {
-    fontSize: 12,
+    fontSize: 11,
   },
   navTabTextActive: {
     color: '#FFFFFF',

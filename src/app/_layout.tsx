@@ -1,72 +1,76 @@
 // ============================================================================
 // ROOT LAYOUT EXPO ROUTER
-// Menerapkan Stack Navigator, Provider State Global, dan Konfigurasi Layar
+// [PERUBAHAN - KRITERIA 6]: Membungkus aplikasi dengan Global AuthProvider
+// [PERUBAHAN - KRITERIA 7]: Route Protection Guards menggunakan <Stack.Protected>
 // ============================================================================
 
 import React from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { RentalProvider } from '../context/RentalContext';
+import { AuthProvider, useAuth } from '../context/AuthContext';
+
+function RootNavigator() {
+  // [PERUBAHAN - KRITERIA 6 & 7]: Mengambil status session & loading dari Global AuthContext
+  const { session, isLoading } = useAuth();
+
+  // [PERUBAHAN - KRITERIA 5 & 7]: Loading state saat memeriksa token sesi di SecureStore
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3B82F6" />
+        <Text style={styles.loadingText}>Memeriksa sesi autentikasi...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: {
+          backgroundColor: '#0F172A',
+        },
+      }}
+    >
+      {/* [PERUBAHAN - KRITERIA 7]: Route Protection Guard - Rute publik (Auth) hanya aktif jika belum login */}
+      <Stack.Protected guard={!session}>
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      </Stack.Protected>
+
+      {/* [PERUBAHAN - KRITERIA 7]: Route Protection Guard - Rute utama aplikasi terkunci sampai user login */}
+      <Stack.Protected guard={!!session}>
+        <Stack.Screen name="(app)" options={{ headerShown: false }} />
+      </Stack.Protected>
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <RentalProvider>
+      {/* [PERUBAHAN - KRITERIA 6]: Global AuthProvider + Real-time Session Subscription */}
+      <AuthProvider>
         <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerStyle: {
-              backgroundColor: '#0F172A',
-            },
-            headerTintColor: '#F8FAFC',
-            headerTitleStyle: {
-              fontWeight: '700',
-              fontSize: 16,
-            },
-            contentStyle: {
-              backgroundColor: '#0F172A',
-            },
-            animation: 'slide_from_right',
-          }}
-        >
-          {/* 1. Halaman Utama (Katalog Unit & Dashboard) */}
-          <Stack.Screen
-            name="index"
-            options={{
-              headerShown: false,
-            }}
-          />
-
-          {/* 2. Halaman Rincian Unit & Form Pemesanan */}
-          <Stack.Screen
-            name="unit/[id]"
-            options={{
-              title: 'Rincian & Formulir Sewa',
-              headerBackTitle: 'Kembali',
-            }}
-          />
-
-          {/* 3. Halaman Konfirmasi Sukses Transaksi */}
-          <Stack.Screen
-            name="booking/success"
-            options={{
-              title: 'Bukti Pembayaran Sewa',
-              headerBackVisible: false,
-              gestureEnabled: false,
-            }}
-          />
-
-          {/* 4. Halaman Pemantauan Sesi Aktif (Live Countdown Timer) */}
-          <Stack.Screen
-            name="active-sessions"
-            options={{
-              title: '⏱️ Sesi Bermain Aktif',
-              headerBackTitle: 'Beranda',
-            }}
-          />
-        </Stack>
-      </RentalProvider>
+        <RootNavigator />
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  loadingText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    marginTop: 12,
+    fontWeight: '600',
+  },
+});

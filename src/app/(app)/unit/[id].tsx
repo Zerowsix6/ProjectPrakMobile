@@ -1,14 +1,11 @@
 // ============================================================================
-// HALAMAN RINCIAN UNIT & FORMULIR SEWA
-// Menerapkan:
-// 1. useLocalSearchParams() untuk mengambil parameter rute dinamis [id]
-// 2. Hook useState() untuk form state
-// 3. Hook useEffect() untuk auto-kalkulasi biaya & validasi form
-// 4. router.back() untuk kembali ke halaman sebelumnya
-// 5. router.replace() untuk beralih ke halaman sukses tanpa menumpuk riwayat formulir
+// HALAMAN RINCIAN UNIT & FORMULIR SEWA (TERPROTEKSI AUTH)
+// [PERUBAHAN - KRITERIA 2 & 3]: Validasi booking menggunakan Promise (resolve, reject, .then)
+// [PERUBAHAN - KRITERIA 6]: Prefill nama pelanggan dari user AuthContext jika tersedia
+// [PERUBAHAN - KRITERIA 7]: Dipindahkan ke grup (app) di bawah Route Protection Guard
 // ============================================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,125 +16,122 @@ import {
   Alert,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useRental } from '../../context/RentalContext';
-import { ACCESSORIES_DATA } from '../../data/rentalData';
-import { PaymentMethod, BookingResult, AccessoryItem } from '../../types/rental.types';
-import { externalStyles } from '../../styles/externalStyles';
-import { StatusBadge } from '../../components/StatusBadge';
+import { useRental } from '../../../context/RentalContext';
+import { useAuth } from '../../../context/AuthContext';
+import { ACCESSORIES_DATA } from '../../../data/rentalData';
+import { PaymentMethod, BookingResult, AccessoryItem } from '../../../types/rental.types';
+import { externalStyles } from '../../../styles/externalStyles';
+import { StatusBadge } from '../../../components/StatusBadge';
 import {
   formatRupiah,
   hitungTotalBiayaRental,
   hitungDiskonPersen,
   generateKodeBooking,
-} from '../../utils/rentalFunctions';
+} from '../../../utils/rentalFunctions';
+import {
+  checkPromoEligibilityPromise,
+  validateBookingWithPromise,
+} from '../../../services/externalApiService';
 
 export default function UnitDetailScreen() {
-  // [EXPO ROUTER HOOK]: Mengambil parameter URL dinamis '[id]'
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const { getUnitById, addNewBooking } = useRental();
+  const { user } = useAuth();
   const unit = getUnitById(id as string);
 
-  // [STATE] 1: Form state untuk input pengguna
-  const [customerName, setCustomerName] = useState<string>('');
+  const defaultUserName = (user?.user_metadata?.full_name as string | undefined) || '';
+
+  const [customerName, setCustomerName] = useState<string>(defaultUserName);
   const [customerPhone, setCustomerPhone] = useState<string>('');
-  const [durationHours, setDurationHours] = useState<number>(2); // Default 2 jam
+  const [durationHours, setDurationHours] = useState<number>(2);
   const [selectedAccessories, setSelectedAccessories] = useState<string[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('QRIS');
   const [notes, setNotes] = useState<string>('');
+  // [PERUBAHAN - KRITERIA 3]: Status promo yang diambil via Promise.resolve / .then()
+  const [promoNote, setPromoNote] = useState<string>('');
 
-  // [STATE] 2: State hasil kalkulasi biaya
-  const [calculation, setCalculation] = useState({
-    subtotal: 0,
-    diskonNominal: 0,
-    grandTotal: 0,
-  });
+  const calculation = useMemo(() => {
+    if (!unit) {
+      return { subtotal: 0, diskonNominal: 0, grandTotal: 0 };
+    }
 
-  // [STATE] 3: State validasi formulir
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [isValid, setIsValid] = useState<boolean>(false);
-
-  // [HOOK useEffect] 1: Auto-recalculate biaya setiap kali durasi / aksesori berubah
-  // Berjalan secara reaktif saat 'durationHours', 'selectedAccessories', atau 'unit' berubah
-  useEffect(() => {
-    if (!unit) return;
-
-    // Hitung total harga aksesori tambahan
     const accessorySum = selectedAccessories.reduce((acc: number, accId: string) => {
       const item = ACCESSORIES_DATA.find((a: AccessoryItem) => a.id === accId);
       return acc + (item ? item.extraPrice : 0);
     }, 0);
 
-    // Hitung total dengan diskon
-    const result = hitungTotalBiayaRental(unit.hourlyRate, durationHours, accessorySum);
-    setCalculation(result);
+    return hitungTotalBiayaRental(unit.hourlyRate, durationHours, accessorySum);
   }, [durationHours, selectedAccessories, unit]);
 
-  // [HOOK useEffect] 2: Validasi Formulir secara Realtime
-  // Berjalan secara reaktif saat 'customerName' atau 'durationHours' berubah
+  // [PERUBAHAN - KRITERIA 3]: Memanggil checkPromoEligibilityPromise dengan .then()
   useEffect(() => {
+    checkPromoEligibilityPromise(durationHours)
+      .then((message) => setPromoNote(message))
+      .catch((err: unknown) => {
+        setPromoNote(err instanceof Error ? err.message : '');
+      });
+  }, [durationHours]);
+
+  const { validationError, isValid } = useMemo(() => {
     if (customerName.trim().length === 0) {
-      setValidationError('Nama pemesan wajib diisi.');
-      setIsValid(false);
-    } else if (customerName.trim().length < 3) {
-      setValidationError('Nama pemesan minimal 3 karakter.');
-      setIsValid(false);
-    } else if (durationHours < 1 || durationHours > 12) {
-      setValidationError('Durasi sewa antara 1 sampai 12 jam.');
-      setIsValid(false);
-    } else {
-      setValidationError(null);
-      setIsValid(true);
+      return { validationError: 'Nama pemesan wajib diisi.', isValid: false };
     }
+    if (customerName.trim().length < 3) {
+      return { validationError: 'Nama pemesan minimal 3 karakter.', isValid: false };
+    }
+    if (durationHours < 1 || durationHours > 12) {
+      return { validationError: 'Durasi sewa antara 1 sampai 12 jam.', isValid: false };
+    }
+    return { validationError: null, isValid: true };
   }, [customerName, durationHours]);
 
-  // Handler toggle aksesori
   const handleToggleAccessory = (accId: string) => {
     setSelectedAccessories((prev) =>
-      prev.includes(accId) ? prev.filter((id) => id !== accId) : [...prev, accId]
+      prev.includes(accId) ? prev.filter((itemId) => itemId !== accId) : [...prev, accId]
     );
   };
 
-  // Handler konfirmasi sewa
+  // [PERUBAHAN - KRITERIA 3]: Konfirmasi rental menggunakan validateBookingWithPromise (.resolve, .reject, .then)
   const handleConfirmRental = () => {
-    if (!isValid || !unit) {
-      Alert.alert('Periksa Formulir', validationError || 'Lengkapi semua isian!');
-      return;
-    }
+    if (!unit) return;
 
-    // Buat objek hasil transaksi
-    const bookingResult: BookingResult = {
-      bookingId: generateKodeBooking(),
-      unitId: unit.id,
-      unitName: unit.name,
-      customerName: customerName.trim(),
-      durationHours,
-      hourlyRate: unit.hourlyRate,
-      subtotal: calculation.subtotal,
-      accessoryTotal: calculation.subtotal - unit.hourlyRate * durationHours,
-      discount: calculation.diskonNominal,
-      grandTotal: calculation.grandTotal,
-      paymentMethod,
-      timestamp: new Date().toLocaleString('id-ID'),
-    };
+    validateBookingWithPromise(customerName, durationHours, unit.status)
+      .then((validation) => {
+        const bookingResult: BookingResult = {
+          bookingId: generateKodeBooking(),
+          unitId: unit.id,
+          unitName: unit.name,
+          customerName: validation.normalizedCustomerName,
+          durationHours,
+          hourlyRate: unit.hourlyRate,
+          subtotal: calculation.subtotal,
+          accessoryTotal: calculation.subtotal - unit.hourlyRate * durationHours,
+          discount: calculation.diskonNominal,
+          grandTotal: calculation.grandTotal,
+          paymentMethod,
+          timestamp: new Date().toLocaleString('id-ID'),
+        };
 
-    // Simpan ke context global
-    addNewBooking(bookingResult);
+        addNewBooking(bookingResult);
 
-    // [NAVIGASI router.replace]:
-    // Mengganti (replace) halaman ke bukti sukses agar pengguna tidak bisa menekan tombol kembali ke form sewa yang sudah diproses
-    router.replace({
-      pathname: '/booking/success',
-      params: {
-        bookingId: bookingResult.bookingId,
-        unitName: bookingResult.unitName,
-        customerName: bookingResult.customerName,
-        durationHours: bookingResult.durationHours.toString(),
-        grandTotal: bookingResult.grandTotal.toString(),
-        paymentMethod: bookingResult.paymentMethod,
-        timestamp: bookingResult.timestamp,
-      },
-    });
+        router.replace({
+          pathname: '/booking/success',
+          params: {
+            bookingId: bookingResult.bookingId,
+            unitName: bookingResult.unitName,
+            customerName: bookingResult.customerName,
+            durationHours: bookingResult.durationHours.toString(),
+            grandTotal: bookingResult.grandTotal.toString(),
+            paymentMethod: bookingResult.paymentMethod,
+            timestamp: bookingResult.timestamp,
+          },
+        });
+      })
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : 'Lengkapi semua isian!';
+        Alert.alert('Periksa Formulir', message);
+      });
   };
 
   if (!unit) {
@@ -146,7 +140,6 @@ export default function UnitDetailScreen() {
         <Text style={{ fontSize: 40 }}>❓</Text>
         <Text style={styles.notFoundTitle}>Unit Tidak Ditemukan</Text>
         <TouchableOpacity
-          // [NAVIGASI router.back]: Kembali ke halaman beranda jika data tidak ada
           onPress={() => router.back()}
           style={[externalStyles.primaryButton, { marginTop: 16 }]}
         >
@@ -161,7 +154,6 @@ export default function UnitDetailScreen() {
   return (
     <View style={externalStyles.mainContainer}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Unit Info Card Header */}
         <View style={externalStyles.cardBase}>
           <View style={externalStyles.rowBetween}>
             <View style={{ flex: 1 }}>
@@ -190,11 +182,9 @@ export default function UnitDetailScreen() {
           </View>
         </View>
 
-        {/* Form Pemesanan */}
         <View style={styles.formSection}>
           <Text style={externalStyles.sectionTitle}>Formulir Penyewaan</Text>
 
-          {/* Input Nama Pelanggan */}
           <View style={styles.fieldGroup}>
             <Text style={externalStyles.inputLabel}>
               Nama Lengkap Pelanggan <Text style={{ color: '#EF4444' }}>*</Text>
@@ -208,7 +198,6 @@ export default function UnitDetailScreen() {
             />
           </View>
 
-          {/* Input Kontak / HP */}
           <View style={styles.fieldGroup}>
             <Text style={externalStyles.inputLabel}>Nomor WhatsApp / HP (Opsional)</Text>
             <TextInput
@@ -221,7 +210,6 @@ export default function UnitDetailScreen() {
             />
           </View>
 
-          {/* Durasi Jam Sewa */}
           <View style={styles.fieldGroup}>
             <View style={externalStyles.rowBetween}>
               <Text style={externalStyles.inputLabel}>Durasi Sewa (Jam)</Text>
@@ -251,22 +239,17 @@ export default function UnitDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Quick Preset Buttons */}
+            {promoNote.length > 0 && <Text style={styles.promoNoteText}>✨ {promoNote}</Text>}
+
             <View style={styles.presetRow}>
               {[1, 2, 3, 5, 8].map((h) => (
                 <TouchableOpacity
                   key={h}
                   onPress={() => setDurationHours(h)}
-                  style={[
-                    styles.presetBtn,
-                    durationHours === h && styles.presetBtnActive,
-                  ]}
+                  style={[styles.presetBtn, durationHours === h && styles.presetBtnActive]}
                 >
                   <Text
-                    style={[
-                      styles.presetText,
-                      durationHours === h && styles.presetTextActive,
-                    ]}
+                    style={[styles.presetText, durationHours === h && styles.presetTextActive]}
                   >
                     {h} Jam
                   </Text>
@@ -275,7 +258,6 @@ export default function UnitDetailScreen() {
             </View>
           </View>
 
-          {/* Aksesori Tambahan */}
           <View style={styles.fieldGroup}>
             <Text style={externalStyles.inputLabel}>Tambahan Aksesori & Snack (Opsional)</Text>
             {ACCESSORIES_DATA.map((acc: AccessoryItem) => {
@@ -284,10 +266,7 @@ export default function UnitDetailScreen() {
                 <TouchableOpacity
                   key={acc.id}
                   onPress={() => handleToggleAccessory(acc.id)}
-                  style={[
-                    styles.accessoryItem,
-                    isChecked && styles.accessoryItemActive,
-                  ]}
+                  style={[styles.accessoryItem, isChecked && styles.accessoryItemActive]}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <View style={[styles.checkbox, isChecked && styles.checkboxActive]}>
@@ -301,7 +280,6 @@ export default function UnitDetailScreen() {
             })}
           </View>
 
-          {/* Metode Pembayaran */}
           <View style={styles.fieldGroup}>
             <Text style={externalStyles.inputLabel}>Metode Pembayaran</Text>
             <View style={styles.paymentRow}>
@@ -311,18 +289,14 @@ export default function UnitDetailScreen() {
                   <TouchableOpacity
                     key={method}
                     onPress={() => setPaymentMethod(method)}
-                    style={[
-                      styles.paymentPill,
-                      isSelected && styles.paymentPillActive,
-                    ]}
+                    style={[styles.paymentPill, isSelected && styles.paymentPillActive]}
                   >
-                    <Text
-                      style={[
-                        styles.paymentText,
-                        isSelected && styles.paymentTextActive,
-                      ]}
-                    >
-                      {method === 'QRIS' ? '📱 QRIS' : method === 'Cash' ? '💵 Tunai' : '🏦 Transfer'}
+                    <Text style={[styles.paymentText, isSelected && styles.paymentTextActive]}>
+                      {method === 'QRIS'
+                        ? '📱 QRIS'
+                        : method === 'Cash'
+                        ? '💵 Tunai'
+                        : '🏦 Transfer'}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -330,7 +304,6 @@ export default function UnitDetailScreen() {
             </View>
           </View>
 
-          {/* Catatan Tambahan */}
           <View style={styles.fieldGroup}>
             <Text style={externalStyles.inputLabel}>Catatan Khusus (Opsional)</Text>
             <TextInput
@@ -343,7 +316,6 @@ export default function UnitDetailScreen() {
           </View>
         </View>
 
-        {/* Ringkasan Biaya Realtime (Dihitung oleh useEffect) */}
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>⚡ Rincian Biaya Sewa</Text>
 
@@ -380,23 +352,14 @@ export default function UnitDetailScreen() {
 
           <View style={externalStyles.rowBetween}>
             <Text style={styles.grandTotalLabel}>Total Pembayaran:</Text>
-            <Text style={styles.grandTotalValue}>
-              {formatRupiah(calculation.grandTotal)}
-            </Text>
+            <Text style={styles.grandTotalValue}>{formatRupiah(calculation.grandTotal)}</Text>
           </View>
 
-          {validationError && (
-            <Text style={styles.errorText}>⚠️ {validationError}</Text>
-          )}
+          {validationError && <Text style={styles.errorText}>⚠️ {validationError}</Text>}
         </View>
 
-        {/* Tombol Aksi: router.back() dan Konfirmasi */}
         <View style={styles.actionRow}>
-          <TouchableOpacity
-            // [NAVIGASI router.back]: Kembali ke halaman sebelumnya
-            onPress={() => router.back()}
-            style={styles.cancelBtn}
-          >
+          <TouchableOpacity onPress={() => router.back()} style={styles.cancelBtn}>
             <Text style={styles.cancelBtnText}>Batal</Text>
           </TouchableOpacity>
 
@@ -497,6 +460,12 @@ const styles = StyleSheet.create({
     color: '#34D399',
     fontSize: 11,
     fontWeight: '700',
+  },
+  promoNoteText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 6,
   },
   durationSelector: {
     flexDirection: 'row',

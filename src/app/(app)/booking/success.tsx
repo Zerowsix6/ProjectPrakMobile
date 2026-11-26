@@ -1,21 +1,15 @@
 // ============================================================================
-// HALAMAN BUKTI PEMBAYARAN & KONFIRMASI SUKSES
-// Menerapkan:
-// 1. useLocalSearchParams() untuk membaca rincian transaksi dari URL
-// 2. Hook useState() untuk hitung mundur auto-redirect
-// 3. Hook useEffect() dengan timer interval & cleanup untuk auto-navigasi
-// 4. router.replace() untuk kembali ke beranda dengan riwayat bersih
-// 5. router.push() untuk langsung menuju monitor sesi bermain aktif
+// HALAMAN BUKTI PEMBAYARAN & KONFIRMASI SUKSES (TERPROTEKSI AUTH)
+// [PERUBAHAN - KRITERIA 7]: Dipindahkan ke grup (app) di bawah Route Protection Guard
 // ============================================================================
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { externalStyles } from '../../styles/externalStyles';
-import { formatRupiah } from '../../utils/rentalFunctions';
+import { externalStyles } from '../../../styles/externalStyles';
+import { formatRupiah } from '../../../utils/rentalFunctions';
 
 export default function BookingSuccessScreen() {
-  // [EXPO ROUTER HOOK]: Mengambil parameter transaksi dari rute sebelumnya
   const params = useLocalSearchParams<{
     bookingId: string;
     unitName: string;
@@ -26,16 +20,13 @@ export default function BookingSuccessScreen() {
     timestamp: string;
   }>();
 
-  // [STATE]: State hitung mundur detik untuk auto-redirect ke katalog
   const [countdown, setCountdown] = useState<number>(10);
 
-  // [HOOK useEffect]: Timer interval untuk auto-redirect dengan fungsi Cleanup
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          // [NAVIGASI router.replace]: Kembali ke halaman beranda saat timer habis
           router.replace('/');
           return 0;
         }
@@ -43,7 +34,6 @@ export default function BookingSuccessScreen() {
       });
     }, 1000);
 
-    // CLEANUP FUNCTION: Menghapus timer jika pengguna berpindah halaman secara manual
     return () => {
       clearInterval(timer);
     };
@@ -53,7 +43,6 @@ export default function BookingSuccessScreen() {
 
   return (
     <View style={[externalStyles.mainContainer, styles.container]}>
-      {/* Icon Sukses & Pesan Utama */}
       <View style={styles.successIconCircle}>
         <Text style={{ fontSize: 44 }}>🎮</Text>
       </View>
@@ -63,7 +52,6 @@ export default function BookingSuccessScreen() {
         Unit PlayStation telah disiapkan dan timer sesi bermain kini aktif.
       </Text>
 
-      {/* Kartu Bukti Transaksi */}
       <View style={styles.receiptCard}>
         <View style={externalStyles.rowBetween}>
           <Text style={styles.receiptHeader}>STRUK BUKTI SEWA</Text>
@@ -107,15 +95,12 @@ export default function BookingSuccessScreen() {
         </View>
       </View>
 
-      {/* Indikator Hitung Mundur Auto-Redirect */}
       <Text style={styles.countdownNotice}>
         ⏱️ Otomatis kembali ke katalog dalam{' '}
         <Text style={{ fontWeight: '800', color: '#38BDF8' }}>{countdown} detik</Text>
       </Text>
 
-      {/* Tombol Aksi Navigasi */}
       <View style={styles.buttonGroup}>
-        {/* [NAVIGASI router.push]: Menuju ke halaman monitor sesi aktif */}
         <TouchableOpacity
           onPress={() => router.push('/active-sessions')}
           style={[externalStyles.primaryButton, styles.monitorBtn]}
@@ -125,11 +110,7 @@ export default function BookingSuccessScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* [NAVIGASI router.replace]: Kembali langsung ke katalog utama */}
-        <TouchableOpacity
-          onPress={() => router.replace('/')}
-          style={styles.homeBtn}
-        >
+        <TouchableOpacity onPress={() => router.replace('/')} style={styles.homeBtn}>
           <Text style={styles.homeBtnText}>Kembali ke Beranda Sekarang</Text>
         </TouchableOpacity>
       </View>

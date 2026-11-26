@@ -1,13 +1,9 @@
 // ============================================================================
-// HALAMAN PEMANTAUAN SESI AKTIF & LIVE COUNTDOWN TIMER
-// Menerapkan:
-// 1. Hook useState() untuk filter status & pencarian penyewa
-// 2. Hook useEffect() untuk deteksi peringatan sisa waktu (< 5 menit)
-// 3. router.back() untuk kembali ke halaman sebelumnya
-// 4. router.canGoBack() & router.replace() sebagai navigasi pengaman
+// HALAMAN PEMANTAUAN SESI AKTIF & LIVE COUNTDOWN TIMER (TERPROTEKSI AUTH)
+// [PERUBAHAN - KRITERIA 7]: Dipindahkan ke grup (app) di bawah Route Protection Guard
 // ============================================================================
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,39 +14,28 @@ import {
   Alert,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useRental } from '../context/RentalContext';
-import { ActiveSession } from '../types/rental.types';
-import { externalStyles } from '../styles/externalStyles';
-import { formatRupiah, formatSecondsToTime } from '../utils/rentalFunctions';
+import { useRental } from '../../context/RentalContext';
+import { ActiveSession } from '../../types/rental.types';
+import { externalStyles } from '../../styles/externalStyles';
+import { formatRupiah, formatSecondsToTime } from '../../utils/rentalFunctions';
 
 export default function ActiveSessionsScreen() {
   const { activeSessions, finishSession, extendSession } = useRental();
 
-  // [STATE] 1: useState untuk filter status sesi
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIVE' | 'COMPLETED'>('ALL');
-
-  // [STATE] 2: useState untuk pencarian nama penyewa
   const [searchRenter, setSearchRenter] = useState<string>('');
 
-  // [STATE] 3: useState untuk peringatan sesi yang hampir habis
-  const [warningMessage, setWarningMessage] = useState<string | null>(null);
-
-  // [HOOK useEffect]: Memantau sesi yang hampir habis (< 5 menit) secara reaktif
-  useEffect(() => {
+  const warningMessage = useMemo(() => {
     const criticalSessions = activeSessions.filter(
       (s) => s.status !== 'COMPLETED' && s.remainingSeconds > 0 && s.remainingSeconds <= 300
     );
 
     if (criticalSessions.length > 0) {
-      setWarningMessage(
-        `Perhatian: ${criticalSessions.length} sesi bermain tersisa kurang dari 5 menit!`
-      );
-    } else {
-      setWarningMessage(null);
+      return `Perhatian: ${criticalSessions.length} sesi bermain tersisa kurang dari 5 menit!`;
     }
+    return null;
   }, [activeSessions]);
 
-  // Filter daftar sesi
   const filteredSessions = useMemo(() => {
     return activeSessions.filter((session) => {
       const matchFilter =
@@ -66,7 +51,6 @@ export default function ActiveSessionsScreen() {
     });
   }, [activeSessions, filterStatus, searchRenter]);
 
-  // Handler perpanjang waktu sewa
   const handleExtend = (sessionId: string, minutes: number) => {
     extendSession(sessionId, minutes);
     Alert.alert(
@@ -75,7 +59,6 @@ export default function ActiveSessionsScreen() {
     );
   };
 
-  // Handler selesaikan sesi sewa
   const handleFinish = (session: ActiveSession) => {
     Alert.alert(
       'Selesaikan Sesi Main?',
@@ -91,8 +74,6 @@ export default function ActiveSessionsScreen() {
     );
   };
 
-  // [NAVIGASI router.back & router.canGoBack]:
-  // Kembali ke halaman sebelumnya dengan pemeriksaan keamanan rute
   const handleGoBack = () => {
     if (router.canGoBack()) {
       router.back();
@@ -103,7 +84,6 @@ export default function ActiveSessionsScreen() {
 
   return (
     <View style={externalStyles.mainContainer}>
-      {/* Search Bar & Header Filter */}
       <View style={styles.topControlContainer}>
         <TextInput
           style={styles.searchInput}
@@ -113,7 +93,6 @@ export default function ActiveSessionsScreen() {
           onChangeText={setSearchRenter}
         />
 
-        {/* Filter Tabs */}
         <View style={styles.filterTabsRow}>
           {(['ALL', 'ACTIVE', 'COMPLETED'] as const).map((status) => {
             const isSelected = filterStatus === status;
@@ -128,17 +107,9 @@ export default function ActiveSessionsScreen() {
               <TouchableOpacity
                 key={status}
                 onPress={() => setFilterStatus(status)}
-                style={[
-                  styles.filterTab,
-                  isSelected && styles.filterTabActive,
-                ]}
+                style={[styles.filterTab, isSelected && styles.filterTabActive]}
               >
-                <Text
-                  style={[
-                    styles.filterTabText,
-                    isSelected && styles.filterTabTextActive,
-                  ]}
-                >
+                <Text style={[styles.filterTabText, isSelected && styles.filterTabTextActive]}>
                   {label}
                 </Text>
               </TouchableOpacity>
@@ -146,7 +117,6 @@ export default function ActiveSessionsScreen() {
           })}
         </View>
 
-        {/* Warning Banner Realtime dari useEffect */}
         {warningMessage && (
           <View style={styles.warningBanner}>
             <Text style={styles.warningText}>⚠️ {warningMessage}</Text>
@@ -154,7 +124,6 @@ export default function ActiveSessionsScreen() {
         )}
       </View>
 
-      {/* FlatList Sesi Bermain */}
       <FlatList
         data={filteredSessions}
         keyExtractor={(item) => item.sessionId}
@@ -175,14 +144,16 @@ export default function ActiveSessionsScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.sessionUnitName}>{item.unitName}</Text>
                   <Text style={styles.sessionCustomer}>
-                    Penyewa: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{item.customerName}</Text>
+                    Penyewa:{' '}
+                    <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>
+                      {item.customerName}
+                    </Text>
                   </Text>
                   <Text style={styles.sessionMeta}>
                     Mulai: {item.startTime} • Total: {formatRupiah(item.totalPaid)}
                   </Text>
                 </View>
 
-                {/* Digital Countdown Timer */}
                 <View style={styles.timerBox}>
                   <Text style={styles.timerLabel}>
                     {isCompleted ? 'SESI BERAKHIR' : 'SISA WAKTU'}
@@ -199,7 +170,6 @@ export default function ActiveSessionsScreen() {
                 </View>
               </View>
 
-              {/* Action Buttons jika masih aktif */}
               {!isCompleted && (
                 <View style={styles.sessionActionRow}>
                   <Text style={styles.extendLabel}>Perpanjang:</Text>
@@ -219,10 +189,7 @@ export default function ActiveSessionsScreen() {
 
                   <View style={{ flex: 1 }} />
 
-                  <TouchableOpacity
-                    onPress={() => handleFinish(item)}
-                    style={styles.finishBtn}
-                  >
+                  <TouchableOpacity onPress={() => handleFinish(item)} style={styles.finishBtn}>
                     <Text style={styles.finishBtnText}>Selesaikan</Text>
                   </TouchableOpacity>
                 </View>
@@ -241,12 +208,8 @@ export default function ActiveSessionsScreen() {
         }
       />
 
-      {/* Footer Back Button: router.back() */}
       <View style={styles.footerBar}>
-        <TouchableOpacity
-          onPress={handleGoBack}
-          style={styles.backButton}
-        >
+        <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
           <Text style={styles.backButtonText}>⬅ Kembali ke Beranda</Text>
         </TouchableOpacity>
       </View>

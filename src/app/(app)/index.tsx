@@ -1,9 +1,10 @@
 // ============================================================================
-// HALAMAN UTAMA: KATALOG & MONITORING RENTAL PLAYSTATION
-// Menerapkan useState, context global, dan navigasi router.push()
+// HALAMAN UTAMA: KATALOG & MONITORING RENTAL PLAYSTATION (TERPROTEKSI AUTH)
+// [PERUBAHAN - KRITERIA 1, 2, 3]: Menampilkan ringkasan External API via .then() & Interface
+// [PERUBAHAN - KRITERIA 7]: Dipindahkan ke grup (app) yang dijaga Route Protection Guard
 // ============================================================================
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,16 +13,18 @@ import {
   TextInput,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRental } from '../context/RentalContext';
-import { RentalUnit, PSConsoleType } from '../types/rental.types';
-import { externalStyles } from '../styles/externalStyles';
-import { HeaderRental } from '../components/HeaderRental';
-import { QuickStats } from '../components/QuickStats';
-import { RentalCard } from '../components/RentalCard';
-import { formatSecondsToTime } from '../utils/rentalFunctions';
+import { useRental } from '../../context/RentalContext';
+import { RentalUnit, PSConsoleType, ExternalGameItem } from '../../types/rental.types';
+import { externalStyles } from '../../styles/externalStyles';
+import { HeaderRental } from '../../components/HeaderRental';
+import { QuickStats } from '../../components/QuickStats';
+import { RentalCard } from '../../components/RentalCard';
+import { formatSecondsToTime } from '../../utils/rentalFunctions';
+import { fetchGameCatalogWithPromise } from '../../services/externalApiService';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -32,6 +35,36 @@ export default function HomeScreen() {
 
   // [STATE 2]: useState untuk kategori konsol yang dipilih
   const [selectedCategory, setSelectedCategory] = useState<string>('SEMUA');
+
+  // [PERUBAHAN - KRITERIA 1]: State untuk menampung preview Object dari External API
+  const [featuredGames, setFeaturedGames] = useState<ExternalGameItem[]>([]);
+  const [isLoadingGames, setIsLoadingGames] = useState<boolean>(true);
+
+  // [PERUBAHAN - KRITERIA 1 & 3]: Mengambil data External API dengan .then() saat layar dimuat
+  useEffect(() => {
+    let isActive = true;
+
+    fetchGameCatalogWithPromise(false, 3)
+      .then((catalog) => {
+        if (isActive) {
+          setFeaturedGames(catalog.games);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setFeaturedGames([]);
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsLoadingGames(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   // Daftar kategori PlayStation
   const categories: string[] = ['SEMUA', 'PS5', 'PS4', 'PS_VR2', 'PS3'];
@@ -66,7 +99,6 @@ export default function HomeScreen() {
       return;
     }
 
-    // Pindah ke halaman form & detail sewa menggunakan router.push()
     router.push({
       pathname: '/unit/[id]',
       params: { id: unit.id },
@@ -141,10 +173,9 @@ export default function HomeScreen() {
         contentContainerStyle={styles.listPadding}
         ListHeaderComponent={
           <View>
-            {/* Widget Pemantauan Sesi Aktif Berjalan (Live Timer Preview) */}
+            {/* Widget Pemantauan Sesi Aktif Berjalan */}
             {runningSessions.length > 0 && (
               <TouchableOpacity
-                // Navigasi ke halaman monitor aktif menggunakan router.push()
                 onPress={() => router.push('/active-sessions')}
                 style={styles.liveBanner}
               >
@@ -160,7 +191,6 @@ export default function HomeScreen() {
                   </View>
                 </View>
 
-                {/* Tampilkan sesi pertama sebagai preview live */}
                 <View style={styles.livePreviewRow}>
                   <Text style={styles.livePreviewUnit} numberOfLines={1}>
                     {runningSessions[0].unitName} • {runningSessions[0].customerName}
@@ -175,6 +205,41 @@ export default function HomeScreen() {
                 </Text>
               </TouchableOpacity>
             )}
+
+            {/* [PERUBAHAN - KRITERIA 1]: Preview Katalog Game External API di Beranda */}
+            <TouchableOpacity
+              onPress={() => router.push('/external-games')}
+              style={styles.apiPreviewCard}
+            >
+              <View style={externalStyles.rowBetween}>
+                <Text style={styles.apiPreviewTitle}>🌐 Promo Game Terkini (External API)</Text>
+                <Text style={styles.apiPreviewLink}>Lihat Semua ➔</Text>
+              </View>
+
+              {isLoadingGames ? (
+                <View style={styles.apiLoadingRow}>
+                  <ActivityIndicator size="small" color="#38BDF8" />
+                  <Text style={styles.apiLoadingText}>Memuat data External API...</Text>
+                </View>
+              ) : featuredGames.length > 0 ? (
+                <View style={{ marginTop: 8, gap: 4 }}>
+                  {featuredGames.slice(0, 2).map((game) => (
+                    <View key={game.id} style={styles.apiPreviewItem}>
+                      <Text style={styles.apiGameTitle} numberOfLines={1}>
+                        🎮 {game.title}
+                      </Text>
+                      <Text style={styles.apiGamePrice}>
+                        ${game.salePriceUsd.toFixed(2)} (-{game.discountPercent}%)
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.apiLoadingText}>
+                  Ketuk untuk membuka katalog game External API
+                </Text>
+              )}
+            </TouchableOpacity>
 
             {/* Rekap Statistik Unit Rental */}
             <QuickStats units={units} />
@@ -192,7 +257,7 @@ export default function HomeScreen() {
             <Text style={{ fontSize: 36 }}>🔍</Text>
             <Text style={styles.emptyTitle}>Unit Tidak Ditemukan</Text>
             <Text style={styles.emptySub}>
-              Tidak ada unit yang cocok dengan filter atau kata kunci "{searchQuery}".
+              Tidak ada unit yang cocok dengan filter atau kata kunci &quot;{searchQuery}&quot;.
             </Text>
           </View>
         }
@@ -256,7 +321,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2563EB',
     padding: 12,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   liveBannerTitle: {
     fontSize: 13,
@@ -302,6 +367,55 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 6,
     textAlign: 'right',
+  },
+  apiPreviewCard: {
+    backgroundColor: '#0F292E',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#0D9488',
+    padding: 12,
+    marginBottom: 14,
+  },
+  apiPreviewTitle: {
+    color: '#5EEAD4',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  apiPreviewLink: {
+    color: '#99F6E4',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  apiLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  apiLoadingText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    marginTop: 4,
+  },
+  apiPreviewItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#0F172A88',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  apiGameTitle: {
+    color: '#F8FAFC',
+    fontSize: 12,
+    flex: 1,
+    marginRight: 8,
+  },
+  apiGamePrice: {
+    color: '#34D399',
+    fontSize: 11,
+    fontWeight: '800',
   },
   emptyContainer: {
     alignItems: 'center',

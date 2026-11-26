@@ -39,6 +39,7 @@ export interface RentalUnit {
   status: UnitStatus;
   isVip: boolean;
   tvSize: string;
+  // [PERUBAHAN - FIX TYPE]: Menambahkan properti controllerCount agar sesuai dengan rentalData.ts & komponen UI
   controllerCount: number;
   popularGames: string[];
   activeDurationLeftMinutes?: number;
@@ -88,4 +89,62 @@ export interface ActiveSession {
   remainingSeconds: number; // total sisa waktu dalam detik untuk live countdown
   totalPaid: number;
   status: 'ACTIVE' | 'WARNING' | 'COMPLETED';
+}
+
+// ============================================================================
+// [PERUBAHAN - KRITERIA 1]: INTERFACE UNTUK DATA EXTERNAL API
+// Mengambil data dari External API dan memasukkannya ke dalam Object
+// menggunakan Interface TypeScript yang terstruktur.
+// ============================================================================
+
+/**
+ * Interface mentah (raw DTO) sesuai struktur JSON dari External API CheapShark
+ */
+export interface ExternalGameApiResponse {
+  dealID: string;
+  title: string;
+  salePrice: string;
+  normalPrice: string;
+  savings: string;
+  metacriticScore: string;
+  steamRatingText: string | null;
+  steamRatingPercent: string;
+  dealRating: string;
+  thumb: string;
+}
+
+/**
+ * Interface Object hasil pemetaan data External API untuk katalog game rental
+ */
+export interface ExternalGameItem {
+  id: string;
+  title: string;
+  normalPriceUsd: number;
+  salePriceUsd: number;
+  discountPercent: number;
+  metacriticScore: number;
+  ratingLabel: string;
+  dealRating: string;
+  thumbnailUrl: string;
+  fetchedAt: string;
+}
+
+/**
+ * Interface Object pembungkus hasil pengambilan External API beserta metadata
+ */
+export interface ExternalGameCatalogObject {
+  source: string;
+  totalItems: number;
+  lastSyncedAt: string;
+  games: ExternalGameItem[];
+}
+
+/**
+ * Interface hasil validasi booking berbasis Promise (.resolve / .reject / .then)
+ */
+export interface BookingValidationResult {
+  valid: boolean;
+  normalizedCustomerName: string;
+  estimatedBonusMinutes: number;
+  verifiedAt: string;
 }

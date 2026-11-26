@@ -6,7 +6,7 @@
 // MATERI 5.4.C: PRIMITIVE LOOP (for loop, while loop, for-of loop)
 // ============================================================================
 
-import { RentalUnit, UnitStatus, PaymentMethod } from '../types/rental.types';
+import { RentalUnit, UnitStatus } from '../types/rental.types';
 
 // ============================================================================
 // 5.3.A: FUNCTION BAWAAN (BUILT-IN JAVASCRIPT / TYPESCRIPT FUNCTIONS)
